@@ -1,0 +1,5 @@
+hoopR
+nanoparquet
+tidyverse
+zoo
+janitor

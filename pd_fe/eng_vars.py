@@ -98,7 +98,7 @@ def model_vars(df):
 
     player_names = df['player']
 
-    return Y, X.values, player_names
+    return Y, X, player_names
 
 
 def split_scale(df, test_size=0.2, random_state=42):

@@ -188,8 +188,6 @@ ncaa_transfers[['2022_tr','2023_tr','2024_tr']] = ncaa_transfers[['2022_tr','202
 ncaa_transfers['team'] = ncaa_transfers['team'].str.strip()
 ncaa_transfers['team'] = ncaa_transfers['team'].replace(kenpom_to_espn_dict)
 
-ncaa_transfers
-
 # merge the transfer values to the current team table and fill NaN with 0
 team_w_fr_tr = team_w_freshmen.merge(ncaa_transfers, how='left', on = 'team')
 team_w_fr_tr.fillna(0, inplace = True)
@@ -197,4 +195,4 @@ team_w_fr_tr.fillna(0, inplace = True)
 # convert transfer total columns to int & push to database (replaced initial team_table)
 team_w_fr_tr[['2022_tr','2023_tr','2024_tr']] = team_w_fr_tr[['2022_tr', '2023_tr','2024_tr']].astype(int)
 
-push_data_to_db(team_w_fr_tr)
+#push_data_to_db(team_w_fr_tr)

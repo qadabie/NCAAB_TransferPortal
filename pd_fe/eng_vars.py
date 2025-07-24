@@ -5,7 +5,7 @@ from sklearn.preprocessing import StandardScaler
 
 def model_vars(df):
 
-    # ---- Parse and Impute Height (drop weight completely) ----
+    # Parse and Impute Height
     if df['ht'].dtype == 'object':
         def parse_height(ht_str):
             try:
@@ -30,7 +30,7 @@ def model_vars(df):
         return row[ht_col]
     df[ht_col] = df.apply(impute_height, axis=1)
 
-    # ---- Base Feature Set (cleaned) ----
+    # Base Feature Set
     base_cols = [
         'poss_pct', 'shots_pct',
         'e_fg_pct', 'ts_pct', 
@@ -41,26 +41,25 @@ def model_vars(df):
     ]
     X_features = df[base_cols].copy()
 
-    # ---- Minutes (transformed to dampen influence) ----
+    # Minutes
     X_features['min_pct'] = np.sqrt(df['min_pct'])
 
-    # ---- Offensive Engineered Features ----
-    #X_features['playmaking_efficiency'] = 0.5 * df['a_rate'] / (df['to_rate'] + 1e-6)
+    # Offensive Engineered Features
     X_features['scoring_efficiency_volume'] = df['shots_pct'] * df['ts_pct']
 
-    # ---- Defensive Engineered Features ----
+    # Defensive Engineered Features
     X_features['draw_vs_commit_ratio'] = df['f_dper40'] / (df['f_cper40'] + 1e-6)
 
-    # ---- Physical Feature: Height only ----
+    # Physical Feature
     X_features['height_in'] = df[ht_col]
 
-    # ---- Role Encoding ----
+    # Role Encoding
     role_dummies = pd.get_dummies(df['role'], drop_first=True)
 
-    # ---- Combine All Features ----
+    # Combine All Features
     X = pd.concat([role_dummies, X_features], axis=1)
 
-    # ---- Outcome Variable Construction ----
+    # Outcome Variable Construction
     offense = df['o_rtg']
     defense = df['stl_pct'] + df['blk_pct'] + df['dr_pct']
     support_play = df['or_pct'] + df['a_rate']
@@ -77,7 +76,7 @@ def model_vars(df):
     )
     norm_df = pd.DataFrame(norm_components, columns=['offense', 'defense', 'support_play', 'minutes'])
 
-    # ---- Weighting Outcome Components ----
+    # Weighting Outcome Components
     offense_weight = 1.0
     defense_weight = 0.7
     support_weight = 0.3
@@ -101,7 +100,7 @@ def model_vars(df):
     return Y, X, player_names
 
 
-def split_scale(df, test_size=0.2, random_state=42):
+def split_scale(df, test_size = 0.2, random_state = 42):
     Y, X, player_names = model_vars(df)
 
     X_train, X_test, Y_train, Y_test, names_train, names_test = train_test_split(
@@ -117,6 +116,6 @@ def split_scale(df, test_size=0.2, random_state=42):
         "X_test": X_test_scaled,
         "Y_train": Y_train,
         "Y_test": Y_test,
-        "names_test": names_test.reset_index(drop=True),
+        "names_test": names_test.reset_index(drop = True),
         "scaler_x": scaler_x
     }

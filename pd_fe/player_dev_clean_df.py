@@ -15,8 +15,7 @@ def clean_df(df):
     players_with_10_games_each_year = games_check[(games_check >= 10).all(axis = 1)].index
     df_three_years = df_three_years[df_three_years['player_id'].isin(players_with_10_games_each_year)]
 
-    same_team_players = \
-    (df_three_years.groupby('player_id')['team'].nunique().reset_index().query("team == 1")['player_id'])
+    same_team_players = (df_three_years.groupby('player_id')['team'].nunique().reset_index().query("team == 1")['player_id'])
 
     valid_players = same_team_players
 

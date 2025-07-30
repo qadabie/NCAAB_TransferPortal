@@ -146,5 +146,100 @@ This visualization helps answer questions such as:
 from p_dev_mdl_rslts import model_vs_actual, model_results, plot_player_radar, get_full_feature_names
 ```
 
+#### 🕸 Component 2: Team Offensive Network Structure and Continuity Analysis
 ## 📂 Project Structure (Component 2)
+
+Objectives
+- Construct passing/shooting-based possession networks from raw play-by-play data.
+- Measure offensive continuity using rolling network similarity.
+- Quantify whether transfer minutes (and roster churn) correlate with offensive rhythm, adaptation time, and similarity at season's end.
+
+### Step 1: Data Sourcing
+Files:
+
+- Data_pull.r
+
+  - function_pbp(season): Pulls raw ESPN play-by-play data for every NCAAB game in a given season.
+  - function_player_box(season): Pulls box score data from ESPN for all games in a season.
+
+- Player_data.r
+
+  - Loops through each team and pulls all players' season-long statistics from ESPN.
+
+- Opp_tracker.r
+
+  - Compiles game-by-game opponent defensive data for each team from 2021-22 to 2024-25, including:
+    - Adjusted Defensive Efficiency
+    - Turnover Rate Forced
+    - eFG% Allowed
+    - Offensive Rebound % Allowed
+    - Free Throw Rate Allowed
+
+### Step 2: Data Cleaning
+File:
+
+- pbp_processing.py
+
+  - Filters raw play-by-play data to include only meaningful events:
+
+    - Made/missed shots, free throws, rebounds, turnovers
+    - Tags possessions and changes of possession
+    - Outputs structured possession sequences ready for network modeling.
+
+### Step 3: Network Generation
+Files:
+
+- Game_Nodes.py
+
+  - Converts each possession into a sequence of nodes reflecting ball movement (player to action to player, etc.).
+  - Example: [Player1, 3_pt_shot, Player2, 2_pt_shot, 2_points]
+
+- Network_Edges.py
+
+  - Builds a Directed Acyclic Graph (DAG) using NetworkX, one for each team per game.
+  - Weights each edge by frequency across possessions.
+  - Outputs edges with associated game_id and team_id.
+
+- Network_viz.py
+
+  - Generates game-specific network visualizations using NetworkX and Matplotlib.
+
+### Step 4: Network Similarity
+Files:
+
+- Jaccard_Similarity.py
+
+  - Calculates rolling Weighted Jaccard Similarity across two 3-game windows (games N–N+2 and N+3–N+5).
+  - Only includes edges involving players (to focus on lineup-based continuity).
+  - Includes opponent defensive averages across those games.
+
+Formula:
+**Weighted Jaccard Similarity = $$\sum_{iEE}^{n} \frac{min(w_i^1, w_i^2)}{max(w_i^1, w_i^2)}$$**
+
+- Smoothing+Regression.py
+
+  - Removes noise from similarity signal by regressing out opponent defense metrics.
+  - Residuals represent defense-adjusted similarity.
+  - Applies a Gaussian filter to further smooth team trajectories.
+  - Outputs:
+
+    - Adjust Time: First changepoint where team enters its final offensive identity phase.
+    - End-of-Season Similarity: Average adjusted similarity in the final 3–5 games of the regular season.
+    - Also detects changepoints using algorithms like ruptures to track when teams stabilize or evolve offensively.
+
+### Step 5: Does it Matter?
+File:
+
+- Ttest.py
+  
+  - Combines:
+    - Adjust Time
+    - End-of-Season Similarity
+    - Team info (conference, transfer minutes %, freshman minutes %, etc.)
+  - Conducts statistical tests:
+    - Are higher transfer minutes associated with later adjust times?
+    - Do teams with fewer transfers have more consistent offensive structures?
+    - Is early offensive continuity predictive of postseason performance?
+  - Results are filtered to Power 6 Conferences:
+    - Big Ten (B10), Big 12 (B12), SEC, Big East, ACC, and Pac-12 (pre-realignment)
 

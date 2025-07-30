@@ -6,7 +6,7 @@ Question 2 - How do roster and role continuity affect the network structure of a
 
 This project has two components designed to answers these questions.  
 Component 1: Individual Player Development Analysis   
-Component 2: 
+Component 2: Component 2: Team Offensive Network Structure and Continuity Analysis
 
 ## 📂 Project Structure (Component 1)
 
@@ -146,8 +146,7 @@ This visualization helps answer questions such as:
 from p_dev_mdl_rslts import model_vs_actual, model_results, plot_player_radar, get_full_feature_names
 ```
 
-#### 🕸 Component 2: Team Offensive Network Structure and Continuity Analysis
-## 📂 Project Structure (Component 2)
+## 🕸 Component 2: Team Offensive Network Structure and Continuity Analysis
 
 Objectives
 - Construct passing/shooting-based possession networks from raw play-by-play data.
@@ -155,19 +154,15 @@ Objectives
 - Quantify whether transfer minutes (and roster churn) correlate with offensive rhythm, adaptation time, and similarity at season's end.
 
 ### Step 1: Data Sourcing
+Scrape raw NCAA basketball data from ESPN, including play-by-play logs, box scores, player rosters, and opponent defensive metrics for all games from 2021–2025.
+
 Files:
-
-- Data_pull.r
-
-  - function_pbp(season): Pulls raw ESPN play-by-play data for every NCAAB game in a given season.
-  - function_player_box(season): Pulls box score data from ESPN for all games in a season.
-
-- Player_data.r
-
+- `Data_pull.r`
+  - `function_pbp(season)`: Pulls raw ESPN play-by-play data for every NCAAB game in a given season.
+  - `function_player_box(season)`: Pulls box score data from ESPN for all games in a season.
+-`Player_data.r`
   - Loops through each team and pulls all players' season-long statistics from ESPN.
-
-- Opp_tracker.r
-
+-`Opp_tracker.r`
   - Compiles game-by-game opponent defensive data for each team from 2021-22 to 2024-25, including:
     - Adjusted Defensive Efficiency
     - Turnover Rate Forced
@@ -176,47 +171,42 @@ Files:
     - Free Throw Rate Allowed
 
 ### Step 2: Data Cleaning
+Process raw play-by-play logs to retain only relevant basketball actions (shots, rebounds, turnovers) and label each possession for network construction.
+
 File:
-
-- pbp_processing.py
-
+- `pbp_processing.py`
   - Filters raw play-by-play data to include only meaningful events:
-
     - Made/missed shots, free throws, rebounds, turnovers
     - Tags possessions and changes of possession
     - Outputs structured possession sequences ready for network modeling.
 
 ### Step 3: Network Generation
+Convert possessions into Directed Acyclic Graphs (DAGs) to capture how the ball flows through players and actions. Each game’s offensive structure becomes a weighted network.
+
 Files:
-
-- Game_Nodes.py
-
+- `Game_Nodes.py`
   - Converts each possession into a sequence of nodes reflecting ball movement (player to action to player, etc.).
   - Example: [Player1, 3_pt_shot, Player2, 2_pt_shot, 2_points]
-
-- Network_Edges.py
-
+- `Network_Edges.py`
   - Builds a Directed Acyclic Graph (DAG) using NetworkX, one for each team per game.
   - Weights each edge by frequency across possessions.
   - Outputs edges with associated game_id and team_id.
-
-- Network_viz.py
-
+- `Network_viz.py`
   - Generates game-specific network visualizations using NetworkX and Matplotlib.
 
 ### Step 4: Network Similarity
+Compute rolling Weighted Jaccard Similarity between a team’s offense in two 3-game stretches. Adjust for opponent defense via regression, then smooth the results to extract long-term trends in offensive structure.
+
 Files:
 
-- Jaccard_Similarity.py
+- `Jaccard_Similarity.py`
 
   - Calculates rolling Weighted Jaccard Similarity across two 3-game windows (games N–N+2 and N+3–N+5).
   - Only includes edges involving players (to focus on lineup-based continuity).
   - Includes opponent defensive averages across those games.
+  - **Weighted Jaccard Similarity = $$\sum_{i \in E}^{n} \frac{min(w_i^1, w_i^2)}{max(w_i^1, w_i^2)}$$**
 
-Formula:
-**Weighted Jaccard Similarity = $$\sum_{iEE}^{n} \frac{min(w_i^1, w_i^2)}{max(w_i^1, w_i^2)}$$**
-
-- Smoothing+Regression.py
+- `Smoothing+Regression.py`
 
   - Removes noise from similarity signal by regressing out opponent defense metrics.
   - Residuals represent defense-adjusted similarity.
@@ -228,10 +218,10 @@ Formula:
     - Also detects changepoints using algorithms like ruptures to track when teams stabilize or evolve offensively.
 
 ### Step 5: Does it Matter?
-File:
+Test whether offensive cohesion metrics (from Step 4) are associated with roster stability metrics — specifically, transfer minutes. Analyze relationships within power conferences using statistical tests.
 
-- Ttest.py
-  
+File:
+- `Ttest.py`
   - Combines:
     - Adjust Time
     - End-of-Season Similarity

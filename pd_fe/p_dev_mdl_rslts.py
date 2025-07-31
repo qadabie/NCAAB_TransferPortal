@@ -17,6 +17,9 @@ def model_vs_actual(df, scaler, fit_model):
         "Predicted": Y_pred,
         "Estimated Difference": Y - Y_pred
     })
+
+    summary_df["role"] = df["role"].reset_index(drop = True)
+
     return summary_df
 
 def model_results(df):
@@ -27,10 +30,14 @@ def model_results(df):
     print(f"R² Score: {r2:.3f}")
 
     plt.figure(figsize = (8, 6))
-    sns.scatterplot(data = df, x = "Predicted", y = "Actual Composite Score (2024)")
-    plt.plot([df["Predicted"].min(), df["Predicted"].max()],
-             [df["Predicted"].min(), df["Predicted"].max()],
-             color = 'red', linestyle = '--')
+    sns.scatterplot(
+        data=df,
+        x="Predicted",
+        y="Actual Composite Score (2024)",
+        hue = "role",
+        palette = "tab10",
+        s = 70
+    )
     plt.title("Actual vs. Predicted Composite Score (2024)")
     plt.xlabel("Predicted")
     plt.ylabel("Actual Composite Score (2024)")
@@ -39,7 +46,6 @@ def model_results(df):
 
     plt.figure(figsize = (8, 5))
     sns.histplot(df["Estimated Difference"], bins = 20, kde = True)
-    plt.axvline(0, color = 'red', linestyle = '--')
     plt.title("Estimated Difference on Composite Score")
     plt.xlabel("Effect Size (Actual - Predicted)")
     plt.ylabel("Number of Players")

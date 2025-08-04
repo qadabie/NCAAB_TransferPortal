@@ -44,6 +44,12 @@ method is included in the `db_connect.py` file. When prompted, the table name in
 ```bash
 from db_connect import get_connection
 ```
+For access without a database connection: 
+```bash
+# last CSV download of complete player_table = 8/4/2025
+
+df = read_csv('data/player_table_202508040645.csv')
+```
 
 ### Step 2: Clean DataFrame
 In this step the dataset is cleaned to ensure consistency and reliability. The `clean_df()` function handles this preprocessing by:

@@ -1,0 +1,249 @@
+import pandas as pd
+import networkx as nx
+from collections import Counter
+from tqdm import tqdm
+import os
+import matplotlib.pyplot as plt
+
+
+# Load the data
+df = pd.read_parquet(r'data\21_25_game_nodes.parquet')
+player_table = pd.read_csv(r'data\player_espnid_table.csv')
+team_table = pd.read_csv(r'data\team_espnid_table.csv')
+player_dictionary = dict(zip(player_table.iloc[:, 0].astype(str), player_table.iloc[:, 1]))
+team_dictionary = dict(zip(team_table.iloc[:, 0].astype(str), team_table.iloc[:, 1]))
+def create_game_networks(game_id, team_id):
+    """
+    Create directed networks from possession summaries for a specific game,
+    generating separate networks for home and away teams.
+    
+    Args:
+        game_id: The ID of the game to analyze
+    
+    Returns:
+        Two network graphs (home_network, away_network)
+    """
+    # Filter the dataframe for the specific game
+    game_df = df[(df['game_id'] == game_id) & (df['team_id'] == team_id)]
+    #print(game_df)  # Print sample rows for debugging
+    if game_df.empty:
+        print(f"No data found for game_id: {game_id}")
+        return None, None
+
+    # Create empty dictionaries to store edges
+    home_edges = []
+    # Process each possession summary
+    player_possessions = {}  # Dictionary to track possessions each player was involved in
+    player_points = {}      # Dictionary to track points with player involvement
+    points_dict = {'0_points': 0, '1_points': 1, '2_points': 2, '3_points': 3, '4_points': 4, '5_points': 5}
+    for _, row in game_df.iterrows():
+        team_id = row['team_id']
+        poss_summary = list(row['poss_summary'])
+        # Skip if possession summary is empty or not a list
+        if not isinstance(poss_summary, list) or len(poss_summary) < 2:
+            print(f"Skipping row with insufficient possession summary for game_id {game_id} and team_id {team_id}")
+            continue
+        # Get points from the last item in possession summary
+        points = poss_summary[-1]  # This should be something like "0_points", "1_points", etc.
+        points = points_dict.get(points, 0)  # Default to 0 if not found in points_dict
+        # Track player involvement in this possession
+        for i in range(len(poss_summary) - 1):  # Skip the last element (points)
+            source = poss_summary[i]
+            try :
+                source = str(float(source))  # Convert to int if it's a player ID
+            except:
+                source = str(source)  # Keep as string if conversion fails
+            source_name = player_dictionary.get(source, source)  # Replace with player name if available
+            # Update player_possessions dictionary
+            if source_name not in player_possessions:
+                player_possessions[source_name] = 0
+            player_possessions[source_name] += 1
+            # Update player_points dictionary
+            if source_name not in player_points:
+                player_points[source_name] = 0
+            player_points[source_name] += points
+            # Create directed edges for the network
+            target = poss_summary[i + 1]
+            try:
+                target = str(float(target))
+                  # Convert to int if it's a player ID
+            except:
+                target = str(target)  # Keep as string if conversion fails
+            target_name = player_dictionary.get(target, target)  # Replace with player name if available
+            edge = (source_name, target_name)
+            # Add edge to the home edges list
+            if team_id == team_id:
+                home_edges.append(edge)
+    # Count edge frequencies
+    home_edge_counts = Counter(home_edges)
+    #print(home_edge_counts.most_common(30))  # Print the 10 most common edges for debugging
+    #print(f"Home edges for game_id {game_id} and team_id {team_id}: {home_edge_counts}")
+    # Create directed graphs
+    home_network = nx.DiGraph()
+    # Find nodes with most connections
+    all_edges = list(home_edge_counts.keys())
+    #print(all_edges[:10])  # Print first 10 edges for debugging
+    all_nodes = set([node for edge in all_edges for node in edge])
+    # Remove NaN nodes if any
+    all_nodes = {node for node in all_nodes if pd.notna(node)}
+    node_connections = {str(node): 0 for node in all_nodes}
+    for (source, target), weight in home_edge_counts.items():
+        if pd.notna(source):
+            node_connections[source] += weight
+        if pd.notna(target):
+            node_connections[target] += weight
+    nodes_list_transformed = []
+    for node in all_nodes:
+        # Check if the node is in the player dictionary values or keys
+        if node in player_dictionary.values():
+            # Already a player name
+            nodes_list_transformed.append(node)
+        elif str(node) in player_dictionary:
+            # Convert player ID to player name
+            nodes_list_transformed.append(player_dictionary.get(str(node), node))
+        else:
+            # Not a player, keep as is
+            nodes_list_transformed.append(node)
+    # Filter for player nodes that start with "4" and get top 6
+    all_nodes = nodes_list_transformed
+    player_nodes = [node for node in node_connections.keys() 
+                   if node in list(player_dictionary.values())]
+    top_players = player_nodes
+
+    # Only include top players and points nodes
+    nodes_to_include = set(top_players)
+    points_nodes = [node for node in all_nodes if isinstance(node, str) and node.endswith('_points')]
+    shot_nodes = [node for node in all_nodes if isinstance(node, str) and node.endswith('_shot')]
+    #print(player_nodes, points_nodes, shot_nodes)
+    nodes_to_include.update(points_nodes)
+    nodes_to_include.update(shot_nodes)
+    # Convert nodes_to_include to a list to maintain order
+    nodes_list = list(nodes_to_include)
+    # Get team name for the title
+    # team_name = team_dictionary.get(str(team_id), f"Team {team_id}")
+    # # Create a color list with all of the corresponding colors for each node
+    # node_colors = []
+    # for node in nodes_list:
+    #     if isinstance(node, str) and node.endswith('_points'):
+    #         if node == '0_points':
+    #             node_colors.append('red')
+    #         else:
+    #             node_colors.append('green')
+    #     elif isinstance(node, str) and node.endswith('_shot'):
+    #         node_colors.append('lightblue')
+    #     elif node in top_players:
+    #         node_colors.append('orange')
+    #     else:
+    #         node_colors.append('lightgray')
+    # Create the filtered graph
+    home_network.add_nodes_from(nodes_list)
+    # Add edges with weights
+    # Filter to only include edges where both source and target are in nodes_list
+    filtered_edge_counts = {
+        (source, target): weight 
+        for (source, target), weight in home_edge_counts.items()
+        if source in nodes_list and target in nodes_list
+    }
+    # Add edges with weights from the filtered edge counts
+    for (source, target), weight in filtered_edge_counts.items():
+        home_network.add_edge(source, target, weight=weight)
+    # Create a layered layout with points at bottom, shots in middle, and players on top
+    pos = {}
+    self_loops = list(nx.selfloop_edges(home_network))
+    home_network.remove_edges_from(self_loops)  # Remove self-loops for clarity
+    # Flip the direction of all edges with "1_shot" as the source
+    edges_to_remove = []
+    edges_to_add = []
+    for source, target, data in home_network.edges(data=True):
+        if source == "1_shot":
+            edges_to_remove.append((source, target))
+            edges_to_add.append((target, source, data["weight"]))
+
+    # Remove old edges
+    home_network.remove_edges_from(edges_to_remove)
+
+    # Add new reversed edges
+    for target, source, weight in edges_to_add:
+        home_network.add_edge(target, source, weight=weight)
+    # Position points nodes at the bottom (row 0)
+    
+    points_x_positions = {node: idx for idx, node in enumerate(points_nodes)}
+    points_width = len(points_nodes)
+    for node in points_nodes:
+        pos[node] = (points_x_positions[node] - points_width/2, 0)
+    
+    # Position shot nodes in the middle (row 1)
+    shot_x_positions = {node: idx for idx, node in enumerate(shot_nodes)}
+    shot_width = len(shot_nodes)
+    for node in shot_nodes:
+        pos[node] = (shot_x_positions[node] - shot_width/2, 1)
+    
+    # Position player nodes at the top (row 2)
+    # Position player nodes in a staggered layout (rows 2 and 3)
+    player_nodes_list = sorted([node for node in nodes_list if node in top_players])
+    player_x_positions = {node: idx for idx, node in enumerate(player_nodes_list)}
+    player_width = len(player_nodes_list)
+    
+    for i, node in enumerate(player_nodes_list):
+        # Place even-indexed players on row 2, odd-indexed on row 3
+        row = 2 if i % 2 == 0 else 3
+        pos[node] = (player_x_positions[node] - player_width/2, row)
+    # Create a DataFrame with all edges in the network
+    edge_data = []
+    for source, target, data in home_network.edges(data=True):
+        # Only include edges where the source is a player node (in top_players list)
+        if source in top_players:
+            edge_data.append({
+                'game_id': game_id,
+                'team_id': team_id,
+                'source': source,
+                'target': target,
+                'weight': data['weight'],
+                'weight_normalized': data['weight']/len(game_df['poss_summary'])
+            })
+        
+    edge_df = pd.DataFrame(edge_data)
+    
+    # If there are no edges, return an empty DataFrame with the same columns
+    if not edge_data:
+        edge_df = pd.DataFrame(columns=['game_id', 'team_id', 'source', 'target', 
+                                       'weight', 'weight_normalized'])
+    
+    #print(edge_df.head())
+    return edge_df
+
+# Example: Create networks for the first game in the dataset
+# Create an empty list to store all centrality dataframes
+all_centrality_dfs = []
+
+# Get unique game_id and team_id pairs
+unique_game_team_pairs = df[['game_id', 'team_id', 'season','home']].drop_duplicates()
+print(unique_game_team_pairs['season'].value_counts())
+# Create an empty list to store all edge dataframes
+all_edge_dfs = []
+
+# Iterate through each unique game-team pair
+for _, row in tqdm(unique_game_team_pairs.iterrows(), total=len(unique_game_team_pairs), desc="Processing Games"):
+    game_id = row['game_id']
+    team_id = row['team_id']
+    home = row['home'] if 'home' in row else None
+    # Create network for this game and team
+    edge_df = create_game_networks(game_id, team_id)
+    
+    # Add to the list if not None and not empty
+    if edge_df is not None and not edge_df.empty:
+        # Add season information to the edge dataframe
+        edge_df['season'] = row['season']
+        edge_df['home'] = home
+        all_edge_dfs.append(edge_df)
+
+# Combine all edge dataframes
+if all_edge_dfs:
+    combined_edge_df = pd.concat(all_edge_dfs, ignore_index=True)
+    print(combined_edge_df['season'].value_counts())
+    # Save the combined dataframe
+    combined_edge_df.to_parquet('all_game_network_edges.parquet')
+    print(f"Saved edge data for {len(unique_game_team_pairs)} games with {len(combined_edge_df)} total edges")
+else:
+    print("No valid network edges found")
+
